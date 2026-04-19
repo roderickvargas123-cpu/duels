@@ -1,0 +1,137 @@
+if getgenv().GhostTriggerBot then return end
+getgenv().GhostTriggerBot = true
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local holdingTriggerButton = false
+local ejecutandoMacro = false
+
+-- ==========================================
+-- INTERFAZ GRÁFICA (OCULTA EN COREGUI)
+-- ==========================================
+local hiddenUI = (gethui and gethui()) or CoreGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "GhostGUI"
+screenGui.Parent = hiddenUI
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 220, 0, 70)
+frame.Position = UDim2.new(0.02, 0, 0.05, 0)
+frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+frame.BorderSizePixel = 2
+frame.BorderColor3 = Color3.fromRGB(255, 0, 0)
+frame.Parent = screenGui
+
+local textLabel = Instance.new("TextLabel")
+textLabel.Size = UDim2.new(1, 0, 0, 40)
+textLabel.BackgroundTransparency = 1
+textLabel.Text = "[ GHOST MACRO: Hold 'P' ]"
+textLabel.TextColor3 = Color3.fromRGB(0, 255, 255) -- Color Cyan para diferenciarlo
+textLabel.Font = Enum.Font.Code
+textLabel.TextSize = 13
+textLabel.Parent = frame
+
+local hideLabel = Instance.new("TextLabel")
+hideLabel.Size = UDim2.new(1, 0, 0, 20)
+hideLabel.Position = UDim2.new(0, 0, 0, 40)
+hideLabel.BackgroundTransparency = 1
+hideLabel.Text = "[INSERT] para Ocultar Menú"
+hideLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+hideLabel.Font = Enum.Font.SourceSans
+hideLabel.TextSize = 14
+hideLabel.Parent = frame
+
+-- ==========================================
+-- CONTROLES DE TECLADO
+-- ==========================================
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.Insert then
+        screenGui.Enabled = not screenGui.Enabled
+    end
+
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.P then
+        holdingTriggerButton = true
+        frame.BorderColor3 = Color3.fromRGB(0, 255, 255)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.P then
+        holdingTriggerButton = false
+        frame.BorderColor3 = Color3.fromRGB(255, 0, 0)
+    end
+end)
+
+-- ==========================================
+-- MACRO: GHOST SHOOTING (Saca, Dispara, Guarda)
+-- ==========================================
+local function GhostShoot()
+    if ejecutandoMacro then return end
+    ejecutandoMacro = true
+
+    -- 1. SACAR EL ARMA (Presiona 2)
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
+    
+    -- Ping Delay: Esperamos 50ms para que el servidor registre el arma en la mano
+    task.wait(0.05) 
+    
+    -- 2. DISPARAR (Clic Izquierdo)
+    if mouse1click then
+        mouse1click()
+    else
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+    end
+    
+    -- Bullet Delay: Esperamos 50ms para asegurar que la bala salió del cañón
+    task.wait(0.05)
+    
+    -- 3. GUARDAR EL ARMA (Presiona 2 otra vez para desequipar)
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
+
+    -- Cooldown de recarga (Evita que el macro se vuelva loco si dejas la mira en el enemigo)
+    task.wait(0.5)
+    ejecutandoMacro = false
+end
+
+-- ==========================================
+-- MOTOR PRINCIPAL (Súper Ligero)
+-- ==========================================
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Exclude
+rayParams.IgnoreWater = true
+
+RunService.RenderStepped:Connect(function()
+    if holdingTriggerButton and getgenv().GhostTriggerBot and LocalPlayer.Character then
+        
+        -- El único filtro que necesitamos: ignorarte a ti mismo
+        rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+        
+        local mousePos = UserInputService:GetMouseLocation()
+        local unitRay = Camera:ViewportPointToRay(mousePos.X, mousePos.Y)
+        
+        local rayResult = workspace:Raycast(unitRay.Origin, unitRay.Direction * 1000, rayParams)
+        
+        if rayResult and rayResult.Instance then
+            local model = rayResult.Instance:FindFirstAncestorOfClass("Model")
+            
+            -- Si es un jugador y está vivo, ejecutamos el Macro Fantasma
+            if model and model:FindFirstChild("Humanoid") and model.Humanoid.Health > 0 then
+                local targetPlayer = Players:GetPlayerFromCharacter(model)
+                
+                if targetPlayer then
+                    GhostShoot()
+                end
+            end
+        end
+    end
+end)
