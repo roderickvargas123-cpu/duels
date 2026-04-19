@@ -104,7 +104,7 @@ local function GhostShoot()
 end
 
 -- ==========================================
--- MOTOR PRINCIPAL (Súper Ligero)
+-- MOTOR PRINCIPAL (Súper Ligero con Team Check)
 -- ==========================================
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -124,12 +124,21 @@ RunService.RenderStepped:Connect(function()
         if rayResult and rayResult.Instance then
             local model = rayResult.Instance:FindFirstAncestorOfClass("Model")
             
-            -- Si es un jugador y está vivo, ejecutamos el Macro Fantasma
+            -- Si es un jugador y está vivo...
             if model and model:FindFirstChild("Humanoid") and model.Humanoid.Health > 0 then
                 local targetPlayer = Players:GetPlayerFromCharacter(model)
                 
-                if targetPlayer then
-                    GhostShoot()
+                -- Validamos que exista y no seamos nosotros mismos
+                if targetPlayer and targetPlayer ~= LocalPlayer then
+                    
+                    -- ==========================================
+                    -- TEAM CHECK (El filtro de aliados)
+                    -- ==========================================
+                    if targetPlayer.Team ~= LocalPlayer.Team then
+                        GhostShoot()
+                    end
+                    -- ==========================================
+                    
                 end
             end
         end
