@@ -26,14 +26,14 @@ frame.Size = UDim2.new(0, 220, 0, 70)
 frame.Position = UDim2.new(0.02, 0, 0.05, 0)
 frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 frame.BorderSizePixel = 2
-frame.BorderColor3 = Color3.fromRGB(255, 0, 0)
+frame.BorderColor3 = Color3.fromRGB(0, 255, 255)
 frame.Parent = screenGui
 
 local textLabel = Instance.new("TextLabel")
 textLabel.Size = UDim2.new(1, 0, 0, 40)
 textLabel.BackgroundTransparency = 1
 textLabel.Text = "[ GHOST MACRO: Hold 'P' ]"
-textLabel.TextColor3 = Color3.fromRGB(0, 255, 255) -- Color Cyan para diferenciarlo
+textLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
 textLabel.Font = Enum.Font.Code
 textLabel.TextSize = 13
 textLabel.Parent = frame
@@ -48,9 +48,6 @@ hideLabel.Font = Enum.Font.SourceSans
 hideLabel.TextSize = 14
 hideLabel.Parent = frame
 
--- ==========================================
--- CONTROLES DE TECLADO
--- ==========================================
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.Insert then
         screenGui.Enabled = not screenGui.Enabled
@@ -70,20 +67,17 @@ UserInputService.InputEnded:Connect(function(input, gameProcessed)
 end)
 
 -- ==========================================
--- MACRO: GHOST SHOOTING (Saca, Dispara, Guarda)
+-- MACRO: GHOST SHOOTING
 -- ==========================================
 local function GhostShoot()
     if ejecutandoMacro then return end
     ejecutandoMacro = true
 
-    -- 1. SACAR EL ARMA (Presiona 2)
     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
     
-    -- Ping Delay: Esperamos 50ms para que el servidor registre el arma en la mano
     task.wait(0.05) 
     
-    -- 2. DISPARAR (Clic Izquierdo)
     if mouse1click then
         mouse1click()
     else
@@ -91,20 +85,50 @@ local function GhostShoot()
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
     end
     
-    -- Bullet Delay: Esperamos 50ms para asegurar que la bala salió del cañón
     task.wait(0.05)
     
-    -- 3. GUARDAR EL ARMA (Presiona 2 otra vez para desequipar)
     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
 
-    -- Cooldown de recarga (Evita que el macro se vuelva loco si dejas la mira en el enemigo)
     task.wait(0.5)
     ejecutandoMacro = false
 end
 
 -- ==========================================
--- MOTOR PRINCIPAL (Súper Ligero con Team Check)
+-- LECTOR DE COLORES (NUEVO TEAM CHECK)
+-- ==========================================
+local function EsAliado(targetChar)
+    local myChar = LocalPlayer.Character
+    if not myChar or not targetChar then return false end
+
+    -- Estrategia 1: Leer el objeto "Highlight" (El sombreado brillante)
+    local myHighlight = myChar:FindFirstChildOfClass("Highlight")
+    local targetHighlight = targetChar:FindFirstChildOfClass("Highlight")
+
+    if myHighlight and targetHighlight then
+        -- Si nuestros sombreados son exactamente del mismo color, somos aliados
+        if myHighlight.FillColor == targetHighlight.FillColor or myHighlight.OutlineColor == targetHighlight.OutlineColor then
+            return true
+        end
+    end
+
+    -- Estrategia 2: Si el juego pinta literalmente las partes del cuerpo
+    local myTorso = myChar:FindFirstChild("UpperTorso") or myChar:FindFirstChild("Torso")
+    local targetTorso = targetChar:FindFirstChild("UpperTorso") or targetChar:FindFirstChild("Torso")
+    
+    if myTorso and targetTorso then
+        if myTorso.Color == targetTorso.Color then
+            -- Solo confirmamos si el color es rojo, azul, verde, etc. (Para no confundir con colores de piel)
+            return true 
+        end
+    end
+
+    -- Si los colores no coinciden o no tienen sombreado, asumimos que es enemigo
+    return false
+end
+
+-- ==========================================
+-- MOTOR PRINCIPAL 
 -- ==========================================
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -113,7 +137,6 @@ rayParams.IgnoreWater = true
 RunService.RenderStepped:Connect(function()
     if holdingTriggerButton and getgenv().GhostTriggerBot and LocalPlayer.Character then
         
-        -- El único filtro que necesitamos: ignorarte a ti mismo
         rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
         
         local mousePos = UserInputService:GetMouseLocation()
@@ -124,20 +147,17 @@ RunService.RenderStepped:Connect(function()
         if rayResult and rayResult.Instance then
             local model = rayResult.Instance:FindFirstAncestorOfClass("Model")
             
-            -- Si es un jugador y está vivo...
             if model and model:FindFirstChild("Humanoid") and model.Humanoid.Health > 0 then
                 local targetPlayer = Players:GetPlayerFromCharacter(model)
                 
-                -- Validamos que exista y no seamos nosotros mismos
                 if targetPlayer and targetPlayer ~= LocalPlayer then
                     
                     -- ==========================================
-                    -- TEAM CHECK (El filtro de aliados)
+                    -- APLICAMOS EL FILTRO DE COLORES AQUI
                     -- ==========================================
-                    if targetPlayer.Team ~= LocalPlayer.Team then
+                    if not EsAliado(model) then
                         GhostShoot()
                     end
-                    -- ==========================================
                     
                 end
             end
