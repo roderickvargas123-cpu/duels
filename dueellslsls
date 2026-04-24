@@ -1,5 +1,5 @@
-if getgenv().GhostTriggerBot then return end
-getgenv().GhostTriggerBot = true
+if _G.GhostTriggerBot then return end
+_G.GhostTriggerBot = true
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -100,28 +100,28 @@ local function GhostShoot()
 end
 
 -- ==========================================
--- MOTOR PRINCIPAL (Con Hitbox Expander + FPS Fix)
+-- MOTOR PRINCIPAL (Con Hitbox Legítima + FPS Fix)
 -- ==========================================
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
 rayParams.IgnoreWater = true
 
 RunService.Heartbeat:Connect(function()
-    if holdingTriggerButton and getgenv().GhostTriggerBot and LocalPlayer.Character then
+    if holdingTriggerButton and _G.GhostTriggerBot and LocalPlayer.Character then
         
         rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
         
         -- ==========================================
-        -- EL TRUCO DE MAGIA: HITBOX EXPANDER (Ajustado)
+        -- ESTABILIZADOR DE HITBOX (Modo Sigilo: Radio 1)
         -- ==========================================
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
                 local hrp = player.Character:FindFirstChild("HumanoidRootPart")
                 if hrp then
-                    -- Aumentamos el núcleo a un cubo de 3x3x3 para absorber el lag de forma discreta
-                    hrp.Size = Vector3.new(3, 3, 3) 
-                    hrp.Transparency = 1 -- Se mantiene 100% invisible en tu pantalla
-                    hrp.CanCollide = false -- Para no bugear las físicas del juego
+                    -- Tamaño 2x2x2: Bloquea tu mira solo en el centro real del jugador
+                    hrp.Size = Vector3.new(2, 2, 2) 
+                    hrp.Transparency = 1 
+                    hrp.CanCollide = false 
                 end
             end
         end
