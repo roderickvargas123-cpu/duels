@@ -112,14 +112,14 @@ RunService.Heartbeat:Connect(function()
         rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
         
         -- ==========================================
-        -- EL TRUCO DE MAGIA: HITBOX EXPANDER (Ajuste 1.2)
+        -- EL TRUCO DE MAGIA: HITBOX EXPANDER (Ajuste 1.1)
         -- ==========================================
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
                 local hrp = player.Character:FindFirstChild("HumanoidRootPart")
                 if hrp then
-                    -- Tamaño 2.4x2.4x2.4 (Radio 1.2): Ligeramente expandido para absorber lag sin ser obvio
-                    hrp.Size = Vector3.new(2.4, 2.4, 2.4) 
+                    -- Tamaño 2.2x2.2x2.2 (Radio 1.1): Ligeramente expandido para absorber lag sin ser obvio
+                    hrp.Size = Vector3.new(2.2, 2.2, 2.2) 
                     hrp.Transparency = 1 -- Se mantiene 100% invisible en tu pantalla
                     hrp.CanCollide = false -- Para no bugear las físicas del juego
                 end
