@@ -5,102 +5,46 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
 local holdingTriggerButton = false
-local ejecutandoMacro = false
+local ultimoDisparo = 0
 
 -- ==========================================
--- INTERFAZ GRÁFICA (OCULTA EN COREGUI)
--- ==========================================
-local hiddenUI = (gethui and gethui()) or CoreGui
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "GhostGUI"
-screenGui.Parent = hiddenUI
-
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 220, 0, 70)
-frame.Position = UDim2.new(0.02, 0, 0.05, 0)
-frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-frame.BorderSizePixel = 2
-frame.BorderColor3 = Color3.fromRGB(255, 0, 0)
-frame.Parent = screenGui
-
-local textLabel = Instance.new("TextLabel")
-textLabel.Size = UDim2.new(1, 0, 0, 40)
-textLabel.BackgroundTransparency = 1
-textLabel.Text = "[ GHOST TRIGGER: Hold 'P' ]"
-textLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
-textLabel.Font = Enum.Font.Code
-textLabel.TextSize = 13
-textLabel.Parent = frame
-
-local hideLabel = Instance.new("TextLabel")
-hideLabel.Size = UDim2.new(1, 0, 0, 20)
-hideLabel.Position = UDim2.new(0, 0, 0, 40)
-hideLabel.BackgroundTransparency = 1
-hideLabel.Text = "[INSERT] para Ocultar Menú"
-hideLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-hideLabel.Font = Enum.Font.SourceSans
-hideLabel.TextSize = 14
-hideLabel.Parent = frame
-
--- ==========================================
--- CONTROLES DE TECLADO
+-- CONTROLES DE TECLADO (100% Invisible)
 -- ==========================================
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if input.KeyCode == Enum.KeyCode.Insert then
-        screenGui.Enabled = not screenGui.Enabled
-    end
-
     if not gameProcessed and input.KeyCode == Enum.KeyCode.P then
         holdingTriggerButton = true
-        frame.BorderColor3 = Color3.fromRGB(0, 255, 255)
     end
 end)
 
 UserInputService.InputEnded:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.P then
         holdingTriggerButton = false
-        frame.BorderColor3 = Color3.fromRGB(255, 0, 0)
     end
 end)
 
 -- ==========================================
--- MACRO: BYPASS ANTI-CHEAT (Solo Extraer y Disparar)
+-- GATILLO PURO (Sin Macros de Equipamiento)
 -- ==========================================
-local function GhostShoot()
-    if ejecutandoMacro then return end
-    ejecutandoMacro = true
+local function Shoot()
+    -- Pequeño cooldown de 50ms para no saturar los eventos del juego al disparar
+    if os.clock() - ultimoDisparo < 0.05 then return end
+    ultimoDisparo = os.clock()
 
-    -- 1. Saca el arma
-    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
-    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
-    
-    -- Le damos 10ms extra al servidor para estabilizar el tiro y que el arma cargue en mano
-    task.wait(0.06) 
-    
-    -- 2. Dispara
     if mouse1click then
-        mouse1click()
+        pcall(mouse1click)
     else
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
     end
-    
-    -- NOTA: Se eliminó la acción de guardar el arma para evadir la detección de macro.
-    -- El arma se quedará equipada en tu mano.
-
-    -- Cooldown para evitar saturación de ciclo
-    task.wait(0.5)
-    ejecutandoMacro = false
 end
 
 -- ==========================================
--- MOTOR PRINCIPAL (Rayo Puro / Hitbox por Defecto)
+-- MOTOR PRINCIPAL (Con Hitbox de 1.05)
 -- ==========================================
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -111,7 +55,20 @@ RunService.Heartbeat:Connect(function()
         
         rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
         
-        -- HBE ELIMINADO: La hitbox se mantiene 100% nativa.
+        -- ==========================================
+        -- EL TRUCO DE MAGIA: HITBOX EXPANDER (Ajuste 1.05)
+        -- ==========================================
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    hrp.Size = Vector3.new(2.1, 2.1, 2.1) 
+                    hrp.Transparency = 1 
+                    hrp.CanCollide = false 
+                end
+            end
+        end
+        -- ==========================================
 
         local mousePos = UserInputService:GetMouseLocation()
         local unitRay = Camera:ViewportPointToRay(mousePos.X, mousePos.Y)
@@ -125,7 +82,7 @@ RunService.Heartbeat:Connect(function()
                 local targetPlayer = Players:GetPlayerFromCharacter(model)
                 
                 if targetPlayer then
-                    GhostShoot()
+                    Shoot()
                 end
             end
         end
