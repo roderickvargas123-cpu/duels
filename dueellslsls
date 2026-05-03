@@ -70,18 +70,20 @@ UserInputService.InputEnded:Connect(function(input, gameProcessed)
 end)
 
 -- ==========================================
--- MACRO: GHOST SHOOTING (Balanceado)
+-- MACRO: BYPASS ANTI-CHEAT (Solo Extraer y Disparar)
 -- ==========================================
 local function GhostShoot()
     if ejecutandoMacro then return end
     ejecutandoMacro = true
 
+    -- 1. Saca el arma
     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
     
-    -- Le damos 10ms extra al servidor para estabilizar el tiro (0.06)
+    -- Le damos 10ms extra al servidor para estabilizar el tiro y que el arma cargue en mano
     task.wait(0.06) 
     
+    -- 2. Dispara
     if mouse1click then
         mouse1click()
     else
@@ -89,12 +91,10 @@ local function GhostShoot()
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
     end
     
-    -- Tiempo extra crucial para evitar el "Hitreg Fail" (0.06)
-    task.wait(0.06)
-    
-    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
-    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
+    -- NOTA: Se eliminó la acción de guardar el arma para evadir la detección de macro.
+    -- El arma se quedará equipada en tu mano.
 
+    -- Cooldown para evitar saturación de ciclo
     task.wait(0.5)
     ejecutandoMacro = false
 end
@@ -112,13 +112,13 @@ RunService.Heartbeat:Connect(function()
         rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
         
         -- ==========================================
-        -- EL TRUCO DE MAGIA: HITBOX EXPANDER (Ajuste 1.1)
+        -- EL TRUCO DE MAGIA: HITBOX EXPANDER (Ajuste 1.05)
         -- ==========================================
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
                 local hrp = player.Character:FindFirstChild("HumanoidRootPart")
                 if hrp then
-                    -- Tamaño 2.2x2.2x2.2 (Radio 1.1): Ligeramente expandido para absorber lag sin ser obvio
+                    -- Tamaño 2.1x2.1x2.1 (Radio 1.05): Ajuste microscópico y seguro
                     hrp.Size = Vector3.new(2.1, 2.1, 2.1) 
                     hrp.Transparency = 1 -- Se mantiene 100% invisible en tu pantalla
                     hrp.CanCollide = false -- Para no bugear las físicas del juego
