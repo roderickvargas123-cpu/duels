@@ -1,74 +1,36 @@
-if getgenv().GhostTriggerBot then return end
-getgenv().GhostTriggerBot = true
+local randomSignature = "Sys_" .. tostring(math.random(10000, 99999))
+if getgenv()[randomSignature] then return end
+getgenv()[randomSignature] = true
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local CoreGui = game:GetService("CoreGui")
-
-local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
 
 local holdingTriggerButton = false
 local ejecutandoMacro = false
 
 -- ==========================================
--- INTERFAZ GRÁFICA (OCULTA EN COREGUI)
+-- 2. MODO HEADLESS (Sin rastro visual)
 -- ==========================================
-local hiddenUI = (gethui and gethui()) or CoreGui
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "GhostGUI"
-screenGui.Parent = hiddenUI
-
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 220, 0, 70)
-frame.Position = UDim2.new(0.02, 0, 0.05, 0)
-frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-frame.BorderSizePixel = 2
-frame.BorderColor3 = Color3.fromRGB(255, 0, 0)
-frame.Parent = screenGui
-
-local textLabel = Instance.new("TextLabel")
-textLabel.Size = UDim2.new(1, 0, 0, 40)
-textLabel.BackgroundTransparency = 1
-textLabel.Text = "[ GHOST + SPHERE: Hold 'P' ]"
-textLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
-textLabel.Font = Enum.Font.Code
-textLabel.TextSize = 13
-textLabel.Parent = frame
-
-local hideLabel = Instance.new("TextLabel")
-hideLabel.Size = UDim2.new(1, 0, 0, 20)
-hideLabel.Position = UDim2.new(0, 0, 0, 40)
-hideLabel.BackgroundTransparency = 1
-hideLabel.Text = "[INSERT] para Ocultar Menú"
-hideLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-hideLabel.Font = Enum.Font.SourceSans
-hideLabel.TextSize = 14
-hideLabel.Parent = frame
+-- Se eliminó por completo el CoreGui, ScreenGui y TextLabels.
+-- Operación 100% en la sombra. Cero instancias creadas.
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if input.KeyCode == Enum.KeyCode.Insert then
-        screenGui.Enabled = not screenGui.Enabled
-    end
-
+    -- Quitamos el Insert, solo queda el gatillo oculto en 'P'
     if not gameProcessed and input.KeyCode == Enum.KeyCode.P then
         holdingTriggerButton = true
-        frame.BorderColor3 = Color3.fromRGB(0, 255, 255)
     end
 end)
 
 UserInputService.InputEnded:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.P then
         holdingTriggerButton = false
-        frame.BorderColor3 = Color3.fromRGB(255, 0, 0)
     end
 end)
 
--- ==========================================
--- MACRO: BYPASS ANTI-CHEAT (Solo Extraer y Disparar)
--- ==========================================
 local function GhostShoot()
     if ejecutandoMacro then return end
     ejecutandoMacro = true
@@ -76,39 +38,43 @@ local function GhostShoot()
     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
     
-    task.wait(0.06) 
+    -- Variación de ms aumentada para engañar detectores de tiempo
+    task.wait(math.random(50, 85) / 1000) 
     
     if mouse1click then
-        mouse1click()
+        pcall(mouse1click) -- Usamos pcall para interceptar y ocultar cualquier error que el AC intente forzar
     else
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
     end
     
-    task.wait(0.5)
+    task.wait(math.random(450, 650) / 1000)
     ejecutandoMacro = false
 end
 
 -- ==========================================
--- MOTOR PRINCIPAL: SPHERECAST (Indetectable)
+-- 3. THROTTLING DEL MOTOR (Evadir escaneo de rendimiento)
 -- ==========================================
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
 rayParams.IgnoreWater = true
 
-RunService.Heartbeat:Connect(function()
-    if holdingTriggerButton and getgenv().GhostTriggerBot and LocalPlayer.Character then
+local lastScan = tick()
+
+RunService.RenderStepped:Connect(function()
+    if holdingTriggerButton and getgenv()[randomSignature] and LocalPlayer.Character then
         
+        -- Throttling: En lugar de escanear a 60fps constantes, escaneamos con variaciones
+        -- Esto rompe los patrones de detección basados en Heartbeat/RenderStepped
+        if tick() - lastScan < 0.025 then return end
+        lastScan = tick()
+
         rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
 
         local mousePos = UserInputService:GetMouseLocation()
         local unitRay = Camera:ViewportPointToRay(mousePos.X, mousePos.Y)
         
-        -- ==========================================
-        -- REEMPLAZO DEL HITBOX EXPANDER POR SPHERECAST
-        -- ==========================================
-        -- Disparamos un cilindro invisible con el radio exacto de 1.05
-        -- Los cuerpos de los enemigos permanecen intactos, evadiendo el Anti-Cheat.
+        -- Mantenemos el Spherecast de radio 1.05
         local rayResult = workspace:Spherecast(unitRay.Origin, 1.05, unitRay.Direction * 1000, rayParams)
         
         if rayResult and rayResult.Instance then
