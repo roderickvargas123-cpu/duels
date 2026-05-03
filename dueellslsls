@@ -1,35 +1,76 @@
-local randomSig = "Sys_" .. tostring(math.random(10000, 99999))
-if getgenv()[randomSig] then return end
-getgenv()[randomSig] = true
+if getgenv().GhostTriggerBot then return end
+getgenv().GhostTriggerBot = true
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
+local Camera = workspace.CurrentCamera
 
 local holdingTriggerButton = false
 local ejecutandoMacro = false
 
 -- ==========================================
--- CONTROLES (Modo Headless - Sin GUI)
+-- INTERFAZ GRÁFICA (OCULTA EN COREGUI)
+-- ==========================================
+local hiddenUI = (gethui and gethui()) or CoreGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "GhostGUI"
+screenGui.Parent = hiddenUI
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 220, 0, 70)
+frame.Position = UDim2.new(0.02, 0, 0.05, 0)
+frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+frame.BorderSizePixel = 2
+frame.BorderColor3 = Color3.fromRGB(255, 0, 0)
+frame.Parent = screenGui
+
+local textLabel = Instance.new("TextLabel")
+textLabel.Size = UDim2.new(1, 0, 0, 40)
+textLabel.BackgroundTransparency = 1
+textLabel.Text = "[ GHOST TRIGGER: Hold 'P' ]"
+textLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
+textLabel.Font = Enum.Font.Code
+textLabel.TextSize = 13
+textLabel.Parent = frame
+
+local hideLabel = Instance.new("TextLabel")
+hideLabel.Size = UDim2.new(1, 0, 0, 20)
+hideLabel.Position = UDim2.new(0, 0, 0, 40)
+hideLabel.BackgroundTransparency = 1
+hideLabel.Text = "[INSERT] para Ocultar Menú"
+hideLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+hideLabel.Font = Enum.Font.SourceSans
+hideLabel.TextSize = 14
+hideLabel.Parent = frame
+
+-- ==========================================
+-- CONTROLES DE TECLADO
 -- ==========================================
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.Insert then
+        screenGui.Enabled = not screenGui.Enabled
+    end
+
     if not gameProcessed and input.KeyCode == Enum.KeyCode.P then
         holdingTriggerButton = true
+        frame.BorderColor3 = Color3.fromRGB(0, 255, 255)
     end
 end)
 
 UserInputService.InputEnded:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.P then
         holdingTriggerButton = false
+        frame.BorderColor3 = Color3.fromRGB(255, 0, 0)
     end
 end)
 
 -- ==========================================
--- MACRO DE DISPARO (Bypass de Tiempos)
+-- MACRO: BYPASS ANTI-CHEAT (Solo Extraer y Disparar)
 -- ==========================================
 local function GhostShoot()
     if ejecutandoMacro then return end
@@ -39,70 +80,54 @@ local function GhostShoot()
     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
     
-    -- Tiempo de estabilización
+    -- Le damos 10ms extra al servidor para estabilizar el tiro y que el arma cargue en mano
     task.wait(0.06) 
     
     -- 2. Dispara
     if mouse1click then
-        pcall(mouse1click) -- pcall evita que el AC intercepte errores
+        mouse1click()
     else
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
     end
     
-    -- Cooldown humanoide
+    -- NOTA: Se eliminó la acción de guardar el arma para evadir la detección de macro.
+    -- El arma se quedará equipada en tu mano.
+
+    -- Cooldown para evitar saturación de ciclo
     task.wait(0.5)
     ejecutandoMacro = false
 end
 
 -- ==========================================
--- MOTOR DE PROXIMIDAD 3D (Indetectable por barridos)
+-- MOTOR PRINCIPAL (Rayo Puro / Hitbox por Defecto)
 -- ==========================================
--- Este número define qué tan lejos de la hitbox real puede estar tu mira para disparar.
--- 1.5 a 2.0 studs equivale a la ventaja del Hitbox Expander sin alterar físicas.
-local DISTANCIA_DETECCION = 1.8 
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Exclude
+rayParams.IgnoreWater = true
 
-RunService.RenderStepped:Connect(function()
-    if holdingTriggerButton and getgenv()[randomSig] and LocalPlayer.Character then
+RunService.Heartbeat:Connect(function()
+    if holdingTriggerButton and getgenv().GhostTriggerBot and LocalPlayer.Character then
         
-        local targetFound = false
+        rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
         
-        -- Verificamos si el ratón está apuntando a algo en el mundo 3D
-        if Mouse.Hit then
-            local aimPosition = Mouse.Hit.Position
+        -- HBE ELIMINADO: La hitbox se mantiene 100% nativa.
+
+        local mousePos = UserInputService:GetMouseLocation()
+        local unitRay = Camera:ViewportPointToRay(mousePos.X, mousePos.Y)
+        
+        local rayResult = workspace:Raycast(unitRay.Origin, unitRay.Direction * 1000, rayParams)
+        
+        if rayResult and rayResult.Instance then
+            local model = rayResult.Instance:FindFirstAncestorOfClass("Model")
             
-            for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and player.Character then
-                    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-                    local humanoid = player.Character:FindFirstChild("Humanoid")
-                    
-                    if hrp and humanoid and humanoid.Health > 0 then
-                        -- ==========================================
-                        -- MAGIA MATEMÁTICA: Medimos la distancia
-                        -- ==========================================
-                        local distancia = (hrp.Position - aimPosition).Magnitude
-                        
-                        -- Si tu mira pasa "cerca" del torso según nuestro radio invisible
-                        if distancia <= DISTANCIA_DETECCION then
-                            targetFound = true
-                            break
-                        end
-                    end
+            if model and model:FindFirstChild("Humanoid") and model.Humanoid.Health > 0 then
+                local targetPlayer = Players:GetPlayerFromCharacter(model)
+                
+                if targetPlayer then
+                    GhostShoot()
                 end
             end
         end
-        
-        if targetFound then
-            GhostShoot()
-        end
     end
-end)
-
--- Notificación nativa de Roblox para confirmar la inyección (El AC no detecta esto como cheat)
-pcall(function()
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Rendimiento",
-        Text = "Optimización de red aplicada.",
-        Duration = 3
-    })
 end)
