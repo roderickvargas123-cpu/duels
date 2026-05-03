@@ -1,25 +1,22 @@
-local randomSignature = "Sys_" .. tostring(math.random(10000, 99999))
-if getgenv()[randomSignature] then return end
-getgenv()[randomSignature] = true
+local randomSig = "Trg_" .. tostring(math.random(1000, 9999))
+if getgenv()[randomSig] then return end
+getgenv()[randomSig] = true
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local Camera = workspace.CurrentCamera
+
 local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
 local holdingTriggerButton = false
 local ejecutandoMacro = false
 
 -- ==========================================
--- 2. MODO HEADLESS (Sin rastro visual)
+-- CONTROLES DE TECLADO (Sin GUI)
 -- ==========================================
--- Se eliminó por completo el CoreGui, ScreenGui y TextLabels.
--- Operación 100% en la sombra. Cero instancias creadas.
-
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    -- Quitamos el Insert, solo queda el gatillo oculto en 'P'
     if not gameProcessed and input.KeyCode == Enum.KeyCode.P then
         holdingTriggerButton = true
     end
@@ -31,6 +28,9 @@ UserInputService.InputEnded:Connect(function(input, gameProcessed)
     end
 end)
 
+-- ==========================================
+-- MACRO DE DISPARO
+-- ==========================================
 local function GhostShoot()
     if ejecutandoMacro then return end
     ejecutandoMacro = true
@@ -38,55 +38,65 @@ local function GhostShoot()
     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
     
-    -- Variación de ms aumentada para engañar detectores de tiempo
-    task.wait(math.random(50, 85) / 1000) 
+    task.wait(0.06) 
     
     if mouse1click then
-        pcall(mouse1click) -- Usamos pcall para interceptar y ocultar cualquier error que el AC intente forzar
+        pcall(mouse1click)
     else
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
     end
-    
-    task.wait(math.random(450, 650) / 1000)
+
+    task.wait(0.5)
     ejecutandoMacro = false
 end
 
 -- ==========================================
--- 3. THROTTLING DEL MOTOR (Evadir escaneo de rendimiento)
+-- MOTOR MATEMÁTICO 2D (Cero interacción física)
 -- ==========================================
-local rayParams = RaycastParams.new()
-rayParams.FilterType = Enum.RaycastFilterType.Exclude
-rayParams.IgnoreWater = true
-
-local lastScan = tick()
+-- Tolerancia en píxeles. 35 píxeles equivale aproximadamente a tu radio de 1.05/1.1
+local FOV_TOLERANCE = 35 
 
 RunService.RenderStepped:Connect(function()
-    if holdingTriggerButton and getgenv()[randomSignature] and LocalPlayer.Character then
+    if holdingTriggerButton and getgenv()[randomSig] and LocalPlayer.Character then
         
-        -- Throttling: En lugar de escanear a 60fps constantes, escaneamos con variaciones
-        -- Esto rompe los patrones de detección basados en Heartbeat/RenderStepped
-        if tick() - lastScan < 0.025 then return end
-        lastScan = tick()
-
-        rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
-
         local mousePos = UserInputService:GetMouseLocation()
-        local unitRay = Camera:ViewportPointToRay(mousePos.X, mousePos.Y)
+        local targetFound = false
         
-        -- Mantenemos el Spherecast de radio 1.05
-        local rayResult = workspace:Spherecast(unitRay.Origin, 1.05, unitRay.Direction * 1000, rayParams)
-        
-        if rayResult and rayResult.Instance then
-            local model = rayResult.Instance:FindFirstAncestorOfClass("Model")
-            
-            if model and model:FindFirstChild("Humanoid") and model.Humanoid.Health > 0 then
-                local targetPlayer = Players:GetPlayerFromCharacter(model)
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                local humanoid = player.Character:FindFirstChild("Humanoid")
                 
-                if targetPlayer then
-                    GhostShoot()
+                if hrp and humanoid and humanoid.Health > 0 then
+                    -- Convertimos la posición 3D del enemigo a una posición 2D en tu pantalla
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                    
+                    if onScreen then
+                        -- Calculamos la distancia en píxeles entre tu ratón y el enemigo
+                        local distance = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                        
+                        -- Si el enemigo entra en nuestro círculo invisible de píxeles, disparamos
+                        if distance <= FOV_TOLERANCE then
+                            targetFound = true
+                            break
+                        end
+                    end
                 end
             end
         end
+        
+        if targetFound then
+            GhostShoot()
+        end
     end
+end)
+
+-- Notificación sigilosa para saber que inyectó correctamente
+pcall(function()
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "Sistema",
+        Text = "Módulo de compatibilidad activo.",
+        Duration = 3
+    })
 end)
