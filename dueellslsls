@@ -32,7 +32,7 @@ frame.Parent = screenGui
 local textLabel = Instance.new("TextLabel")
 textLabel.Size = UDim2.new(1, 0, 0, 40)
 textLabel.BackgroundTransparency = 1
-textLabel.Text = "[ GHOST + HITBOX: Hold 'P' ]"
+textLabel.Text = "[ GHOST + SPHERE: Hold 'P' ]"
 textLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
 textLabel.Font = Enum.Font.Code
 textLabel.TextSize = 13
@@ -48,9 +48,6 @@ hideLabel.Font = Enum.Font.SourceSans
 hideLabel.TextSize = 14
 hideLabel.Parent = frame
 
--- ==========================================
--- CONTROLES DE TECLADO
--- ==========================================
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.Insert then
         screenGui.Enabled = not screenGui.Enabled
@@ -76,14 +73,11 @@ local function GhostShoot()
     if ejecutandoMacro then return end
     ejecutandoMacro = true
 
-    -- 1. Saca el arma
     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
     
-    -- Le damos 10ms extra al servidor para estabilizar el tiro y que el arma cargue en mano
     task.wait(0.06) 
     
-    -- 2. Dispara
     if mouse1click then
         mouse1click()
     else
@@ -91,16 +85,12 @@ local function GhostShoot()
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
     end
     
-    -- NOTA: Se eliminó la acción de guardar el arma para evadir la detección de macro.
-    -- El arma se quedará equipada en tu mano.
-
-    -- Cooldown para evitar saturación de ciclo
     task.wait(0.5)
     ejecutandoMacro = false
 end
 
 -- ==========================================
--- MOTOR PRINCIPAL (Con Hitbox Legítima + FPS Fix)
+-- MOTOR PRINCIPAL: SPHERECAST (Indetectable)
 -- ==========================================
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -110,27 +100,16 @@ RunService.Heartbeat:Connect(function()
     if holdingTriggerButton and getgenv().GhostTriggerBot and LocalPlayer.Character then
         
         rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
-        
-        -- ==========================================
-        -- EL TRUCO DE MAGIA: HITBOX EXPANDER (Ajuste 1.05)
-        -- ==========================================
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    -- Tamaño 2.1x2.1x2.1 (Radio 1.05): Ajuste microscópico y seguro
-                    hrp.Size = Vector3.new(2.1, 2.1, 2.1) 
-                    hrp.Transparency = 1 -- Se mantiene 100% invisible en tu pantalla
-                    hrp.CanCollide = false -- Para no bugear las físicas del juego
-                end
-            end
-        end
-        -- ==========================================
 
         local mousePos = UserInputService:GetMouseLocation()
         local unitRay = Camera:ViewportPointToRay(mousePos.X, mousePos.Y)
         
-        local rayResult = workspace:Raycast(unitRay.Origin, unitRay.Direction * 1000, rayParams)
+        -- ==========================================
+        -- REEMPLAZO DEL HITBOX EXPANDER POR SPHERECAST
+        -- ==========================================
+        -- Disparamos un cilindro invisible con el radio exacto de 1.05
+        -- Los cuerpos de los enemigos permanecen intactos, evadiendo el Anti-Cheat.
+        local rayResult = workspace:Spherecast(unitRay.Origin, 1.05, unitRay.Direction * 1000, rayParams)
         
         if rayResult and rayResult.Instance then
             local model = rayResult.Instance:FindFirstAncestorOfClass("Model")
