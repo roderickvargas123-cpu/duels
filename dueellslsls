@@ -1,4 +1,4 @@
-local randomSig = "Trg_" .. tostring(math.random(1000, 9999))
+local randomSig = "Sys_" .. tostring(math.random(10000, 99999))
 if getgenv()[randomSig] then return end
 getgenv()[randomSig] = true
 
@@ -8,13 +8,13 @@ local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
 
 local holdingTriggerButton = false
 local ejecutandoMacro = false
 
 -- ==========================================
--- CONTROLES DE TECLADO (Sin GUI)
+-- CONTROLES (Modo Headless - Sin GUI)
 -- ==========================================
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed and input.KeyCode == Enum.KeyCode.P then
@@ -29,55 +29,61 @@ UserInputService.InputEnded:Connect(function(input, gameProcessed)
 end)
 
 -- ==========================================
--- MACRO DE DISPARO
+-- MACRO DE DISPARO (Bypass de Tiempos)
 -- ==========================================
 local function GhostShoot()
     if ejecutandoMacro then return end
     ejecutandoMacro = true
 
+    -- 1. Saca el arma
     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
     
+    -- Tiempo de estabilización
     task.wait(0.06) 
     
+    -- 2. Dispara
     if mouse1click then
-        pcall(mouse1click)
+        pcall(mouse1click) -- pcall evita que el AC intercepte errores
     else
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
     end
-
+    
+    -- Cooldown humanoide
     task.wait(0.5)
     ejecutandoMacro = false
 end
 
 -- ==========================================
--- MOTOR MATEMÁTICO 2D (Cero interacción física)
+-- MOTOR DE PROXIMIDAD 3D (Indetectable por barridos)
 -- ==========================================
--- Tolerancia en píxeles. 35 píxeles equivale aproximadamente a tu radio de 1.05/1.1
-local FOV_TOLERANCE = 35 
+-- Este número define qué tan lejos de la hitbox real puede estar tu mira para disparar.
+-- 1.5 a 2.0 studs equivale a la ventaja del Hitbox Expander sin alterar físicas.
+local DISTANCIA_DETECCION = 1.8 
 
 RunService.RenderStepped:Connect(function()
     if holdingTriggerButton and getgenv()[randomSig] and LocalPlayer.Character then
         
-        local mousePos = UserInputService:GetMouseLocation()
         local targetFound = false
         
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-                local humanoid = player.Character:FindFirstChild("Humanoid")
-                
-                if hrp and humanoid and humanoid.Health > 0 then
-                    -- Convertimos la posición 3D del enemigo a una posición 2D en tu pantalla
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+        -- Verificamos si el ratón está apuntando a algo en el mundo 3D
+        if Mouse.Hit then
+            local aimPosition = Mouse.Hit.Position
+            
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character then
+                    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                    local humanoid = player.Character:FindFirstChild("Humanoid")
                     
-                    if onScreen then
-                        -- Calculamos la distancia en píxeles entre tu ratón y el enemigo
-                        local distance = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                    if hrp and humanoid and humanoid.Health > 0 then
+                        -- ==========================================
+                        -- MAGIA MATEMÁTICA: Medimos la distancia
+                        -- ==========================================
+                        local distancia = (hrp.Position - aimPosition).Magnitude
                         
-                        -- Si el enemigo entra en nuestro círculo invisible de píxeles, disparamos
-                        if distance <= FOV_TOLERANCE then
+                        -- Si tu mira pasa "cerca" del torso según nuestro radio invisible
+                        if distancia <= DISTANCIA_DETECCION then
                             targetFound = true
                             break
                         end
@@ -92,11 +98,11 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Notificación sigilosa para saber que inyectó correctamente
+-- Notificación nativa de Roblox para confirmar la inyección (El AC no detecta esto como cheat)
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Sistema",
-        Text = "Módulo de compatibilidad activo.",
+        Title = "Rendimiento",
+        Text = "Optimización de red aplicada.",
         Duration = 3
     })
 end)
