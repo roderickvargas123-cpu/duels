@@ -240,7 +240,7 @@ RunService.Heartbeat:Connect(function()
 
                     -- Tamaño 2.2x2.2x2.2 (Radio 1.1): Ligeramente expandido para absorber lag sin ser obvio
 
-                    hrp.Size = Vector3.new(2.1, 2.1, 2.1) 
+                    hrp.Size = Vector3.new(2.05, 2.05, 2.05) 
 
                     hrp.Transparency = 1 -- Se mantiene 100% invisible en tu pantalla
 
